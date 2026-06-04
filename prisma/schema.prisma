@@ -5,3 +5,111 @@ datasource db {
 generator client {
   provider = "prisma-client-js"
 }
+
+model User {
+  id            String         @id @default(cuid())
+  name          String?
+  email         String         @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+  reviews       Review[]
+  savedColleges SavedCollege[]
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+model College {
+  id            String         @id @default(cuid())
+  name          String         @unique
+  slug          String         @unique
+  city          String?
+  state         String
+  location      String
+  type          String
+  annualFees    Float
+  avgPackage    Float
+  rating        Float
+  nirfRank      Int?
+  thumbnail     String
+  description   String
+  createdAt     DateTime       @default(now())
+  courses       Course[]
+  reviews       Review[]
+  savedBy       SavedCollege[]
+
+  @@index([name])
+  @@index([city])
+  @@index([state])
+  @@index([rating])
+}
+
+model Course {
+  id        String  @id @default(cuid())
+  name      String
+  duration  Int
+  fees      Float
+  seats     Int?
+  collegeId String
+  college   College @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  rating    Float
+  title     String
+  body      String
+  userId    String
+  collegeId String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  college   College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+}
+
+model SavedCollege {
+  id        String   @id @default(cuid())
+  userId    String
+  collegeId String
+  savedAt   DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  college   College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, collegeId])
+}
