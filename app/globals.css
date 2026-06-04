@@ -8,8 +8,15 @@
   --accent: #EF4444;
 }
 
+@theme {
+  --font-sans: "Inter", sans-serif;
+  --color-primary: var(--primary);
+  --color-accent: var(--accent);
+  --color-background: var(--background);
+}
+
 body {
-  font-family: "Inter", sans-serif;
-  background-color: var(--background);
+  font-family: var(--font-sans);
+  background-color: var(--color-background);
   color: var(--foreground);
 }
