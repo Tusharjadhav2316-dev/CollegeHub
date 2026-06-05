@@ -1,8 +1,17 @@
-import { PrismaClient } from "@prisma/client";
-import fs from "fs";
+import dotenv from "dotenv";
 import path from "path";
 
-const prisma = new PrismaClient();
+// Load environment variables from .env.local
+dotenv.config({ path: path.join(process.cwd(), ".env.local") });
+
+import { Pool } from "pg";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "@prisma/client";
+import fs from "fs";
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 function slugify(text: string): string {
   return text
@@ -161,9 +170,11 @@ async function main() {
 main()
   .then(async () => {
     await prisma.$disconnect();
+    await pool.end();
   })
   .catch(async (e) => {
     console.error(e);
     await prisma.$disconnect();
+    await pool.end();
     process.exit(1);
   });
