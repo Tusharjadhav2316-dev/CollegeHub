@@ -36,7 +36,7 @@ export default function LoginForm() {
         router.push("/discover");
         router.refresh();
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
       setError("An unexpected error occurred. Please try again.");
     } finally {
@@ -47,7 +47,7 @@ export default function LoginForm() {
   const handleOAuthSignIn = async (provider: "google" | "github") => {
     try {
       await signIn(provider, { callbackUrl: "/discover" });
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
       setError(`Failed to sign in with ${provider}.`);
     }

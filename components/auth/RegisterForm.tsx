@@ -62,7 +62,7 @@ export default function RegisterForm() {
           router.push("/login");
         }, 2000);
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
       setError("Failed to register. Please check your network connection.");
     } finally {
