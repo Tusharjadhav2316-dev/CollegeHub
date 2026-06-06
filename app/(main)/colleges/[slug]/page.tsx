@@ -6,6 +6,8 @@ import CollegeCard from "@/components/college/CollegeCard";
 import HeroSection from "@/components/college/CollegeDetail/HeroSection";
 import CollegeDetailClient from "@/components/college/CollegeDetail/CollegeDetailClient";
 
+export const revalidate = 3600;
+
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
@@ -16,7 +18,7 @@ async function getCollegeData(slug: string) {
   // Try API fetch
   try {
     const res = await fetch(`${baseUrl}/api/colleges/${slug}`, {
-      cache: "no-store",
+      next: { revalidate: 3600 },
     });
     if (res.ok) {
       return await res.json();

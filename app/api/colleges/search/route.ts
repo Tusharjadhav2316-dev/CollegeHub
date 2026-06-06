@@ -29,6 +29,9 @@ export async function GET(request: Request) {
         thumbnail: true,
         type: true,
         rating: true,
+        annualFees: true,
+        avgPackage: true,
+        nirfRank: true,
       },
     });
 

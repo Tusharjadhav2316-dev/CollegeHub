@@ -15,7 +15,7 @@ import CollegeCard from "@/components/college/CollegeCard";
 import { getHomepageStats } from "@/lib/homepage-stats";
 
 export const metadata: Metadata = {
-  title: "CampusPilot — Find Your Future Campus",
+  title: "CampusPilot — Find Your Perfect Campus",
   description:
     "Discover colleges, compare rankings, placements, fees and admissions with CampusPilot.",
   alternates: {
@@ -107,17 +107,19 @@ export default async function HomePage() {
             </div>
 
             {/* Search Bar Container */}
-            <div className="w-full max-w-[700px] relative z-20 mx-auto shadow-[0_8px_30px_rgb(0,0,0,0.06)] rounded-[100px] bg-white p-2 flex items-center border border-slate-100 focus-within:ring-4 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all">
-              <form action="/discover" className="flex items-center w-full h-[56px] pl-4">
-                <Search className="w-6 h-6 text-[#94A3B8] shrink-0 mr-3" strokeWidth={2.5} />
-                <input 
-                  type="text" 
-                  name="q"
-                  placeholder="Search 12,000+ colleges, courses, cities..." 
-                  className="flex-1 bg-transparent border-none outline-none text-[#0F172A] text-[16px] font-medium h-full placeholder:text-[#94A3B8]" 
-                  required
-                />
-                <button type="submit" className="bg-gradient-to-r from-[#FF6B6B] to-[#EF4444] text-white font-[800] text-[15px] px-[32px] h-full rounded-[100px] hover:shadow-lg hover:scale-[1.02] active:scale-95 transition-all shrink-0 border-none outline-none">
+            <div className="w-full max-w-[700px] relative z-20 mx-auto shadow-[0_8px_30px_rgb(0,0,0,0.06)] rounded-2xl sm:rounded-[100px] bg-white p-1.5 sm:p-2 flex items-center border border-slate-100 focus-within:ring-4 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all">
+              <form action="/discover" className="flex flex-col sm:flex-row items-center w-full gap-2 sm:gap-0 sm:h-[56px] pl-2 sm:pl-4">
+                <div className="flex items-center w-full flex-1 h-12 sm:h-full">
+                  <Search className="w-5 h-5 sm:w-6 sm:h-6 text-[#94A3B8] shrink-0 mr-2 sm:mr-3" strokeWidth={2.5} />
+                  <input 
+                    type="text" 
+                    name="q"
+                    placeholder="Search 12,000+ colleges, courses..." 
+                    className="flex-1 bg-transparent border-none outline-none text-[#0F172A] text-sm sm:text-[16px] font-medium h-full placeholder:text-[#94A3B8]" 
+                    required
+                  />
+                </div>
+                <button type="submit" className="w-full sm:w-auto bg-gradient-to-r from-[#FF6B6B] to-[#EF4444] text-white font-[800] text-sm sm:text-[15px] px-6 sm:px-[32px] py-3 sm:py-0 sm:h-full rounded-xl sm:rounded-[100px] hover:shadow-lg hover:scale-[1.02] active:scale-95 transition-all shrink-0 border-none outline-none">
                   Search Now
                 </button>
               </form>
@@ -145,7 +147,7 @@ export default async function HomePage() {
       {/* STATS ROW */}
       <section className="bg-white border-y border-[#F1F5F9] py-[40px] relative z-20">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap items-center justify-center sm:justify-between gap-8 sm:gap-4 text-center">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-4 text-center">
             <div className="flex flex-col items-center">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-[8px] h-[8px] rounded-full bg-[#10B981]"></div>
@@ -187,7 +189,7 @@ export default async function HomePage() {
               View All &rarr;
             </Link>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[32px]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[32px]">
             {featuredColleges.map((college, idx) => (
               <CollegeCard
                 key={college.id}

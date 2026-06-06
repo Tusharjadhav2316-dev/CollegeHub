@@ -2,18 +2,21 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { X, ArrowRight } from "lucide-react";
 import { useCompareStore } from "@/lib/compare-store";
 
 export default function CompareBar() {
   const [mounted, setMounted] = useState(false);
   const { compareList, removeCollege, clearCompare } = useCompareStore();
+  const pathname = usePathname();
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  if (!mounted || compareList.length === 0) {
+  // Hide on compare page or when empty
+  if (!mounted || compareList.length === 0 || pathname === "/compare") {
     return null;
   }
 

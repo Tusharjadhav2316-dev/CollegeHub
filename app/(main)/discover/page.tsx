@@ -3,13 +3,34 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import DiscoverClient from "./DiscoverClient";
 
-export const metadata: Metadata = {
- title: "Discover Colleges & Universities — CampusPilot",
- description: "Browse, filter and search 1,200+ colleges across India by course stream, ranking, fees, location, and placement packages.",
- alternates: {
- canonical: "https://campuspilot.in/discover",
- },
-};
+export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
+  const params = await searchParams;
+  const search = typeof params.search === "string" ? params.search : "";
+  const state = typeof params.state === "string" ? params.state : "";
+  const stream = typeof params.stream === "string" ? params.stream : "";
+
+  let title = "Discover Colleges & Universities";
+
+  if (stream && state) {
+    const formatStream = stream.charAt(0).toUpperCase() + stream.slice(1);
+    title = `Top ${formatStream} Colleges in ${state}`;
+  } else if (stream) {
+    const formatStream = stream.charAt(0).toUpperCase() + stream.slice(1);
+    title = `Top ${formatStream} Colleges in India`;
+  } else if (state) {
+    title = `Colleges in ${state}`;
+  } else if (search) {
+    title = `Search results for "${search}"`;
+  }
+
+  return {
+    title: `${title} — CampusPilot`,
+    description: `Browse, filter and search ${title.toLowerCase()} across India by course stream, ranking, fees, location, and placement packages.`,
+    alternates: {
+      canonical: "https://campuspilot.in/discover",
+    },
+  };
+}
 
 interface PageProps {
  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;

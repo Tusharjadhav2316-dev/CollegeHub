@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { MapPin, Star, Heart, CheckCircle } from "lucide-react";
 import { useCompareStore } from "@/lib/compare-store";
+import { toast } from "react-hot-toast";
 
 interface HeroSectionProps {
   college: any;
@@ -27,6 +28,7 @@ export default function HeroSection({ college }: HeroSectionProps) {
   const handleCompareClick = () => {
     if (isAddedToCompare) {
       removeCollege(college.id);
+      toast.success("Removed from comparison");
     } else {
       const added = addCollege({
         id: college.id,
@@ -42,13 +44,16 @@ export default function HeroSection({ college }: HeroSectionProps) {
         type: college.type,
       });
       if (!added) {
-        alert("You can compare up to 4 colleges.");
+        toast.error("Maximum 3 colleges for comparison");
+      } else {
+        toast.success("College added to comparison!");
       }
     }
   };
 
   const handleSaveClick = async () => {
     if (!session || !session.user) {
+      toast.error("Please login to save");
       router.push(`/login?callbackUrl=/colleges/${college.slug}`);
       return;
     }
@@ -70,9 +75,16 @@ export default function HeroSection({ college }: HeroSectionProps) {
       if (!res.ok) {
         throw new Error("Failed to update save status");
       }
+
+      if (previousSavedState) {
+        toast.success("Removed from saved");
+      } else {
+        toast.success("College saved!");
+      }
     } catch (err) {
       console.error(err);
       setIsSavedState(previousSavedState);
+      toast.error("Failed to update save status");
     } finally {
       setIsSaving(false);
     }

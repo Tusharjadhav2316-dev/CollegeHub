@@ -201,32 +201,64 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Menu (Drawer Slideout) */}
-      {isOpen && (
-        <div className="md:hidden border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-3 space-y-3">
-          <div className="flex flex-col space-y-1">
-            {menuItems.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={() => setIsOpen(false)}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-base font-medium transition-colors",
-                  pathname === item.href
-                    ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30 dark:text-indigo-400"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-slate-100"
-                )}
-              >
-                <item.icon className="h-5 w-5" />
-                {item.name}
-              </Link>
-            ))}
-          </div>
+      {/* Mobile Menu Backdrop */}
+      <div
+        className={cn(
+          "fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-45 md:hidden transition-opacity duration-300 ease-in-out",
+          isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        )}
+        onClick={() => setIsOpen(false)}
+      />
 
-          <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+      {/* Mobile Menu Slide-in Drawer */}
+      <div
+        className={cn(
+          "fixed inset-y-0 right-0 z-50 w-[85%] max-w-sm bg-white dark:bg-slate-950 p-6 shadow-2xl flex flex-col md:hidden transition-transform duration-300 ease-in-out border-l border-slate-200 dark:border-slate-800",
+          isOpen ? "translate-x-0" : "translate-x-full"
+        )}
+      >
+        <div className="flex items-center justify-between pb-5 border-b border-slate-100 dark:border-slate-800 mb-6 shrink-0">
+          <Link
+            href="/"
+            onClick={() => setIsOpen(false)}
+            className="flex items-center gap-2 text-lg font-extrabold text-indigo-600 dark:text-indigo-400"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md">
+              <GraduationCap className="h-4.5 w-4.5" />
+            </div>
+            <span>CampusPilot</span>
+          </Link>
+          <button
+            onClick={() => setIsOpen(false)}
+            className="p-2 rounded-xl text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
+            aria-label="Close menu"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="flex flex-col space-y-1.5 overflow-y-auto flex-1 pr-1">
+          {menuItems.map((item) => (
+            <Link
+              key={item.name}
+              href={item.href}
+              onClick={() => setIsOpen(false)}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-base font-semibold transition-colors",
+                pathname === item.href
+                  ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30 dark:text-indigo-400"
+                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-slate-100"
+              )}
+            >
+              <item.icon className="h-5 w-5 text-indigo-500/80" />
+              {item.name}
+            </Link>
+          ))}
+
+          <div className="pt-6 border-t border-slate-100 dark:border-slate-800 mt-6 space-y-5">
             {isLoggedIn ? (
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 px-3">
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 px-2">
                   {session.user?.image ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img
@@ -239,8 +271,8 @@ export default function Navbar() {
                       {session.user?.name ? session.user.name[0].toUpperCase() : "U"}
                     </div>
                   )}
-                  <div>
-                    <div className="text-sm font-semibold text-slate-900 dark:text-white">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-slate-900 dark:text-white truncate">
                       {session.user?.name}
                     </div>
                     <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
@@ -253,15 +285,15 @@ export default function Navbar() {
                   <Link
                     href="/dashboard"
                     onClick={() => setIsOpen(false)}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-base text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-900"
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-900"
                   >
-                    <LayoutDashboard className="h-5 w-5" />
+                    <LayoutDashboard className="h-5 w-5 text-slate-400" />
                     Dashboard
                   </Link>
                   <Link
                     href="/saved"
                     onClick={() => setIsOpen(false)}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-base text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-900"
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-900"
                   >
                     <Heart className="h-5 w-5 text-rose-500" />
                     Saved Colleges
@@ -271,28 +303,28 @@ export default function Navbar() {
                       setIsOpen(false);
                       signOut({ callbackUrl: "/" });
                     }}
-                    className="flex w-full items-center gap-3 px-3 py-2.5 rounded-xl text-base text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/20 text-left"
+                    className="flex w-full items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-red-650 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/20 text-left cursor-pointer"
                   >
-                    <LogOut className="h-5 w-5" />
+                    <LogOut className="h-5 w-5 text-red-500" />
                     Sign Out
                   </button>
                 </div>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-3 px-2">
-                <Link href="/login" onClick={() => setIsOpen(false)}>
+                <Link href="/login" onClick={() => setIsOpen(false)} className="w-full">
                   <Button variant="ghost" className="w-full justify-center">
                     Sign In
                   </Button>
                 </Link>
-                <Link href="/register" onClick={() => setIsOpen(false)}>
+                <Link href="/register" onClick={() => setIsOpen(false)} className="w-full">
                   <Button className="w-full justify-center">Get Started</Button>
                 </Link>
               </div>
             )}
           </div>
         </div>
-      )}
+      </div>
     </nav>
   );
 }

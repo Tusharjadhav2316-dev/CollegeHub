@@ -308,9 +308,17 @@ export default function SearchBar({
         >
           {/* SKELETON LOADER */}
           {isLoading && (
-            <div className="w-full md:w-3/5 p-4 flex items-center justify-center gap-2">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#4F46E5] border-t-transparent" />
-              <span className="text-xs font-semibold text-slate-500">Searching...</span>
+            <div className="w-full md:w-3/5 p-4 space-y-3.5 animate-pulse">
+              <div className="h-3.5 w-16 bg-slate-100 rounded mb-4" />
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-slate-100 shrink-0" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-3 w-2/3 bg-slate-100 rounded" />
+                    <div className="h-2.5 w-1/3 bg-slate-100 rounded" />
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 

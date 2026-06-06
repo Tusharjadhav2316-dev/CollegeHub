@@ -8,6 +8,7 @@ import { useSession } from "next-auth/react";
 import { MapPin, Star, Heart } from "lucide-react";
 import { useCompareStore } from "@/lib/compare-store";
 import { formatFees, cn } from "@/lib/utils";
+import { toast } from "react-hot-toast";
 
 export interface CollegeCardProps {
   id: string;
@@ -40,9 +41,7 @@ export default function CollegeCard({
   annualFees,
   nirfRank,
   thumbnail,
-  description,
   className,
-  initialSaved = false,
   viewMode = "grid",
   rank,
 }: CollegeCardProps) {
@@ -74,6 +73,7 @@ export default function CollegeCard({
     
     if (isCompared) {
       removeCollege(id);
+      toast.success("Removed from comparison");
     } else {
       const added = addCollege({
         id,
@@ -89,7 +89,9 @@ export default function CollegeCard({
         type,
       });
       if (!added) {
-        alert("Maximum 4 colleges can be compared");
+        toast.error("Maximum 3 colleges for comparison");
+      } else {
+        toast.success("College added to comparison!");
       }
     }
   };
@@ -110,6 +112,7 @@ export default function CollegeCard({
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           className="object-cover group-hover:scale-[1.05] transition-transform duration-500 ease-out"
           priority={false}
+          loading="lazy"
           onError={() => setImgSrc("https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=800&q=80")}
         />
 

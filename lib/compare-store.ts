@@ -31,7 +31,7 @@ export const useCompareStore = create<CompareState>()(
         if (list.some((c) => c.id === college.id)) {
           return true; // Already exists
         }
-        if (list.length >= 4) {
+        if (list.length >= 3) {
           return false; // Limit reached
         }
         set({ compareList: [...list, college] });
