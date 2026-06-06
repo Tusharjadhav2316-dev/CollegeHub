@@ -8,7 +8,7 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen flex-col bg-[#F8F9FF] dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+    <div className="flex min-h-screen flex-col bg-[#F8F9FF] text-[#0F172A]">
       <Navbar />
       <main className="flex-1 w-full">{children}</main>
       <Footer />

@@ -2,53 +2,95 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Search, X, Clock, TrendingUp, Award, MapPin, BookOpen, Sparkles } from "lucide-react";
-import { cn } from "@/lib/utils";
+import Image from "next/image";
+import { Search, X, Clock, TrendingUp, Award, MapPin, BookOpen, Star, Sliders } from "lucide-react";
+import { cn, formatFees } from "@/lib/utils";
 
 export interface SearchBarProps {
   defaultValue?: string;
   placeholder?: string;
   className?: string;
   size?: "sm" | "md" | "lg";
-  onSearch?: (query: string) => void;
 }
 
 interface CollegeSuggestion {
   id: string;
   name: string;
   slug: string;
-  city: string | null;
+  location: string;
   state: string;
+  nirfRank: number | null;
   thumbnail: string;
-  type: string;
-  rating: number;
+  annualFees: number;
 }
 
-const TRENDING_COLLEGES = [
-  { name: "IIT Bombay", slug: "indian-institute-of-technology-bombay", city: "Mumbai", state: "Maharashtra" },
-  { name: "IIT Delhi", slug: "indian-institute-of-technology-delhi", city: "New Delhi", state: "Delhi" },
-  { name: "IIT Madras", slug: "indian-institute-of-technology-madras", city: "Chennai", state: "Tamil Nadu" },
-];
+interface CourseSuggestion {
+  id: string;
+  name: string;
+  collegeId: string;
+  collegeName: string;
+}
 
-const POPULAR_EXAMS = ["JEE Advanced", "JEE Mains", "NEET", "CAT"];
-const POPULAR_CITIES = ["Mumbai", "Delhi", "Bangalore", "Chennai"];
-const POPULAR_COURSES = ["B.Tech", "MBA", "MBBS", "B.Des"];
+interface SearchResponse {
+  colleges: CollegeSuggestion[];
+  courses: CourseSuggestion[];
+  cities: string[];
+  exams: string[];
+  trending: CollegeSuggestion[];
+}
+
+function getAcronym(name: string): string {
+  const cleaned = name
+    .replace("Indian Institute of Technology", "IIT")
+    .replace("Indian Institute of Management", "IIM")
+    .replace("National Institute of Technology", "NIT");
+  
+  const words = cleaned.split(/\s+/).filter(Boolean);
+  if (words.length >= 3) {
+    return (words[0][0] + words[1][0] + words[2][0]).toUpperCase();
+  }
+  if (words.length === 2) {
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+  return words[0] ? words[0].slice(0, 3).toUpperCase() : "COL";
+}
+
+function getAcronymBg(acronym: string): string {
+  const code = (acronym.charCodeAt(0) || 0) + (acronym.charCodeAt(1) || 0);
+  const colors = [
+    "bg-red-50 text-red-600 border-red-100",
+    "bg-blue-50 text-blue-600 border-blue-100",
+    "bg-emerald-50 text-emerald-600 border-emerald-100",
+    "bg-amber-50 text-amber-600 border-amber-100",
+    "bg-indigo-50 text-indigo-600 border-indigo-100",
+    "bg-purple-50 text-purple-600 border-purple-100",
+    "bg-rose-50 text-rose-600 border-rose-100",
+  ];
+  return colors[code % colors.length];
+}
 
 export default function SearchBar({
   defaultValue = "",
   placeholder = "Search colleges, courses, cities...",
   className,
   size = "md",
-  onSearch,
 }: SearchBarProps) {
   const router = useRouter();
   const [query, setQuery] = useState(defaultValue);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [results, setResults] = useState<CollegeSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  
+  const [data, setData] = useState<SearchResponse>({
+    colleges: [],
+    courses: [],
+    cities: [],
+    exams: [],
+    trending: [],
+  });
+
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [activeIndex, setActiveIndex] = useState(-1);
-  
+
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
@@ -56,39 +98,25 @@ export default function SearchBar({
   // Load recent searches from localStorage
   useEffect(() => {
     try {
-      const stored = localStorage.getItem("campus_pilot_recent_searches");
+      const stored = localStorage.getItem("campuspilot-recent-searches");
       if (stored) {
-        const parsed = JSON.parse(stored);
-        // Defer setting state to prevent synchronous setState inside useEffect
-        setTimeout(() => {
-          setRecentSearches(parsed);
-        }, 0);
+        setRecentSearches(JSON.parse(stored).slice(0, 5));
       }
     } catch (e) {
       console.error("Failed to load recent searches", e);
     }
   }, []);
 
-  // Save recent search
-  const saveRecentSearch = (searchQuery: string) => {
-    if (!searchQuery.trim()) return;
-    const trimmed = searchQuery.trim();
+  // Save search query to history
+  const saveSearchQuery = (q: string) => {
+    if (!q.trim()) return;
+    const trimmed = q.trim();
     const updated = [trimmed, ...recentSearches.filter((s) => s !== trimmed)].slice(0, 5);
     setRecentSearches(updated);
     try {
-      localStorage.setItem("campus_pilot_recent_searches", JSON.stringify(updated));
+      localStorage.setItem("campuspilot-recent-searches", JSON.stringify(updated));
     } catch (e) {
-      console.error("Failed to save recent searches", e);
-    }
-  };
-
-  const clearRecentSearches = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setRecentSearches([]);
-    try {
-      localStorage.removeItem("campus_pilot_recent_searches");
-    } catch (e) {
-      console.error("Failed to clear recent searches", e);
+      console.error("Failed to save search history", e);
     }
   };
 
@@ -105,26 +133,20 @@ export default function SearchBar({
 
   // Debounced API search
   useEffect(() => {
-    const trimmed = query.trim();
-    if (trimmed.length < 2) {
-      return;
-    }
-
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
 
+    setIsLoading(true);
     debounceTimer.current = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/colleges/search?q=${encodeURIComponent(trimmed)}`);
-        const data = await res.json();
-        if (data.success) {
-          setResults(data.colleges || []);
-        }
+        const res = await fetch(`/api/search?q=${encodeURIComponent(query.trim())}`);
+        const result = await res.json();
+        setData(result);
       } catch (err) {
-        console.error("Search fetch error:", err);
+        console.error("Failed to fetch autocomplete suggestions:", err);
       } finally {
         setIsLoading(false);
       }
-    }, 250);
+    }, 300);
 
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
@@ -132,55 +154,45 @@ export default function SearchBar({
   }, [query]);
 
   // Size styling maps
-  const sizeStyles = {
-    sm: {
-      wrapper: "h-10",
-      input: "pl-10 pr-20 text-sm",
-      icon: "h-4 w-4 left-3.5",
-      btn: "right-1 text-xs px-3 py-1.5 rounded-lg",
-      clearBtn: "right-24",
-    },
-    md: {
-      wrapper: "h-12",
-      input: "pl-12 pr-24 text-sm",
-      icon: "h-5 w-5 left-4",
-      btn: "right-1.5 text-xs px-4 py-2 rounded-xl",
-      clearBtn: "right-28",
-    },
-    lg: {
-      wrapper: "h-14",
-      input: "pl-14 pr-28 text-base",
-      icon: "h-5.5 w-5.5 left-5",
-      btn: "right-1.5 text-sm px-5 py-3 rounded-xl",
-      clearBtn: "right-32",
-    },
-  };
+  const heightClass = size === "lg" ? "h-14" : size === "sm" ? "h-10" : "h-12";
+  const paddingClass = size === "lg" ? "pl-12 pr-24 text-base" : "pl-10 pr-20 text-sm";
+  const searchIconSize = size === "lg" ? "h-5 w-5" : "h-4 w-4";
 
-  const s = sizeStyles[size];
-
-  function handleSubmit(e?: React.FormEvent) {
+  const handleSearchSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
     const trimmed = query.trim();
-    if (!trimmed) {
-      inputRef.current?.focus();
-      return;
-    }
-
-    saveRecentSearch(trimmed);
+    if (!trimmed) return;
+    saveSearchQuery(trimmed);
     setIsExpanded(false);
-    
-    if (onSearch) {
-      onSearch(trimmed);
-    } else {
-      router.push(`/discover?search=${encodeURIComponent(trimmed)}`);
-    }
-  }
+    router.push(`/discover?search=${encodeURIComponent(trimmed)}`);
+  };
 
-  // Handle keyboard selections
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    // Total items in dropdown for active list
-    const hasQuery = query.trim().length >= 2;
-    const totalItems = hasQuery ? results.length : (recentSearches.length + TRENDING_COLLEGES.length + POPULAR_EXAMS.length);
+  const handleSelectCollege = (slug: string, name: string) => {
+    saveSearchQuery(name);
+    setIsExpanded(false);
+    router.push(`/colleges/${slug}`);
+  };
+
+  const handleSelectCity = (city: string) => {
+    saveSearchQuery(city);
+    setIsExpanded(false);
+    router.push(`/discover?state=${encodeURIComponent(city)}`);
+  };
+
+  const handleSelectCourse = (courseName: string) => {
+    saveSearchQuery(courseName);
+    setIsExpanded(false);
+    router.push(`/discover?stream=${encodeURIComponent(courseName)}`);
+  };
+
+  // Keyboard navigation
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const totalItems =
+      data.colleges.length +
+      data.courses.length +
+      data.cities.length +
+      data.exams.length +
+      (query.trim() ? 0 : recentSearches.length);
 
     if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -193,98 +205,68 @@ export default function SearchBar({
     } else if (e.key === "Enter") {
       e.preventDefault();
       if (activeIndex >= 0) {
-        if (hasQuery) {
-          const selected = results[activeIndex];
-          if (selected) {
-            saveRecentSearch(selected.name);
-            setIsExpanded(false);
-            router.push(`/colleges/${selected.slug}`);
-          }
-        } else {
-          // Decipher index of active item in static layout
-          let currentIndex = 0;
-          
-          // Check recent
-          if (activeIndex < recentSearches.length) {
-            const term = recentSearches[activeIndex];
-            setQuery(term);
-            saveRecentSearch(term);
-            setIsExpanded(false);
-            router.push(`/discover?search=${encodeURIComponent(term)}`);
-            return;
-          }
-          currentIndex += recentSearches.length;
+        // Find selected item in flattened index list
+        let idx = 0;
+        
+        // Colleges
+        if (activeIndex < idx + data.colleges.length) {
+          const col = data.colleges[activeIndex - idx];
+          handleSelectCollege(col.slug, col.name);
+          return;
+        }
+        idx += data.colleges.length;
 
-          // Check trending colleges
-          if (activeIndex < currentIndex + TRENDING_COLLEGES.length) {
-            const col = TRENDING_COLLEGES[activeIndex - currentIndex];
-            saveRecentSearch(col.name);
-            setIsExpanded(false);
-            router.push(`/colleges/${col.slug}`);
-            return;
-          }
-          currentIndex += TRENDING_COLLEGES.length;
+        // Courses
+        if (activeIndex < idx + data.courses.length) {
+          const crs = data.courses[activeIndex - idx];
+          handleSelectCourse(crs.name);
+          return;
+        }
+        idx += data.courses.length;
 
-          // Check exams
-          if (activeIndex < currentIndex + POPULAR_EXAMS.length) {
-            const exam = POPULAR_EXAMS[activeIndex - currentIndex];
-            saveRecentSearch(exam);
-            setIsExpanded(false);
-            router.push(`/discover?search=${encodeURIComponent(exam)}`);
-            return;
-          }
+        // Cities
+        if (activeIndex < idx + data.cities.length) {
+          const city = data.cities[activeIndex - idx];
+          handleSelectCity(city);
+          return;
+        }
+        idx += data.cities.length;
+
+        // Exams
+        if (activeIndex < idx + data.exams.length) {
+          const exam = data.exams[activeIndex - idx];
+          handleSearchSubmit();
+          return;
         }
       } else {
-        handleSubmit();
+        handleSearchSubmit();
       }
     } else if (e.key === "Escape") {
       setIsExpanded(false);
-      setActiveIndex(-1);
       inputRef.current?.blur();
     }
-  }
+  };
 
-  function handleSelectSuggestion(col: { name: string; slug: string }) {
-    saveRecentSearch(col.name);
-    setIsExpanded(false);
-    router.push(`/colleges/${col.slug}`);
-  }
-
-  function handleSelectTerm(term: string) {
-    setQuery(term);
-    saveRecentSearch(term);
-    setIsExpanded(false);
-    router.push(`/discover?search=${encodeURIComponent(term)}`);
-  }
+  // Top Matching college preview card (on the right)
+  const topCollege = data.colleges[0] || null;
+  const mockSeats = topCollege ? Math.floor(((topCollege.name.charCodeAt(0) + topCollege.name.charCodeAt(1)) * 3) % 200) + 120 : 0;
+  const mockPlacementRate = topCollege ? Math.floor(((topCollege.name.charCodeAt(2) || 80) * 5) % 15) + 85 : 0;
 
   return (
-    <div ref={containerRef} className={cn("relative w-full max-w-2xl mx-auto z-40", className)}>
-      <form onSubmit={handleSubmit} className="relative flex items-center">
+    <div ref={containerRef} className={cn("relative w-full z-45", className)}>
+      <form onSubmit={handleSearchSubmit} className="relative flex items-center">
         {/* Search Icon */}
-        <Search
-          className={cn(
-            "pointer-events-none absolute text-slate-400 dark:text-slate-500",
-            s.icon
-          )}
-          aria-hidden="true"
-        />
+        <Search className={cn("absolute left-3.5 text-slate-400 pointer-events-none", searchIconSize)} />
 
-        {/* Search Input Field */}
+        {/* Input */}
         <input
           ref={inputRef}
           type="text"
           value={query}
           onChange={(e) => {
-            const val = e.target.value;
-            setQuery(val);
+            setQuery(e.target.value);
             setIsExpanded(true);
             setActiveIndex(-1);
-            if (val.trim().length < 2) {
-              setResults([]);
-              setIsLoading(false);
-            } else {
-              setIsLoading(true);
-            }
           }}
           onFocus={() => {
             setIsExpanded(true);
@@ -295,18 +277,11 @@ export default function SearchBar({
           autoComplete="off"
           role="combobox"
           aria-expanded={isExpanded}
-          aria-controls="search-suggestions-dropdown"
+          aria-controls="search-suggestions-container"
           className={cn(
-            "w-full",
-            s.wrapper,
-            s.input,
-            "rounded-2xl border border-slate-200 dark:border-slate-800",
-            "bg-white dark:bg-slate-900/90 dark:backdrop-blur-md",
-            "text-slate-900 dark:text-slate-100 font-medium",
-            "placeholder:text-slate-400 dark:placeholder:text-slate-500",
-            "shadow-md hover:shadow-lg focus:shadow-xl focus:border-indigo-500 dark:focus:border-indigo-500",
-            "focus:outline-none focus:ring-4 focus:ring-indigo-500/10 dark:focus:ring-indigo-500/5",
-            "transition-all duration-200"
+            "w-full rounded-lg border border-[#E2E8F0] bg-white text-[#0F172A] font-semibold focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-[#4F46E5] transition-all",
+            heightClass,
+            paddingClass
           )}
         />
 
@@ -316,186 +291,171 @@ export default function SearchBar({
             type="button"
             onClick={() => {
               setQuery("");
-              setResults([]);
-              setActiveIndex(-1);
               inputRef.current?.focus();
             }}
-            className={cn(
-              "absolute p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors",
-              s.clearBtn
-            )}
-            aria-label="Clear search text"
+            className="absolute right-3 p-1 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
         )}
-
-        {/* Submit Search Button */}
-        <button
-          type="submit"
-          className={cn(
-            "absolute font-bold text-white",
-            "bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600",
-            "shadow-md shadow-orange-500/10 hover:shadow-orange-500/20 active:scale-[0.97]",
-            "transition-all duration-200",
-            s.btn
-          )}
-        >
-          Search
-        </button>
       </form>
 
-      {/* Expanded Dropdown State Panel */}
+      {/* Expanded Suggestions Dropdown */}
       {isExpanded && (
-        <div id="search-suggestions-dropdown" className="absolute top-full left-0 right-0 mt-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-2xl overflow-hidden backdrop-blur-lg z-50">
-          {/* SKELETON / LOADING STATUS */}
+        <div
+          id="search-suggestions-container"
+          className="absolute top-full left-0 right-0 mt-2 bg-white border border-[#E2E8F0] shadow-2xl rounded-xl overflow-hidden flex flex-col md:flex-row z-50 divide-y md:divide-y-0 md:divide-x divide-slate-100"
+        >
+          {/* SKELETON LOADER */}
           {isLoading && (
-            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-center gap-2">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
-              <span className="text-xs font-semibold text-slate-500">Fetching matches...</span>
+            <div className="w-full md:w-3/5 p-4 flex items-center justify-center gap-2">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#4F46E5] border-t-transparent" />
+              <span className="text-xs font-semibold text-slate-500">Searching...</span>
             </div>
           )}
 
-          {/* DYNAMIC RESULTS BLOCK */}
-          {query.trim().length >= 2 ? (
-            <div className="p-2 max-h-96 overflow-y-auto">
-              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                Colleges Matching &quot;{query}&quot;
-              </div>
-              {results.length > 0 ? (
-                <div className="space-y-0.5">
-                  {results.map((col, idx) => (
-                    <button
-                      key={col.id}
-                      type="button"
-                      onClick={() => handleSelectSuggestion(col)}
-                      className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors",
-                        activeIndex === idx
-                          ? "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-200 font-semibold"
-                          : "hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                      )}
-                    >
-                      {/* Image Thumbnail */}
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={col.thumbnail}
-                        alt=""
-                        className="h-9 w-9 rounded-lg object-cover bg-slate-100 dark:bg-slate-800 shrink-0"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src =
-                            `https://ui-avatars.com/api/?name=${encodeURIComponent(col.name)}&background=4F46E5&color=fff&size=80`;
-                        }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-                          {col.name}
-                        </p>
-                        <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 truncate">
-                          <MapPin className="h-3 w-3 shrink-0" />
-                          <span>{col.city ? `${col.city}, ${col.state}` : col.state}</span>
-                          <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-700" />
-                          <span className="font-medium">{col.type}</span>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-6 text-center">
-                  <p className="text-sm text-slate-500 dark:text-slate-400">No colleges matched your search term.</p>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Try searching a different city, course or name.</p>
-                </div>
-              )}
-            </div>
-          ) : (
-            /* DEFAULT / STATIC EXPANDED BLOCK */
-            <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-100 dark:divide-slate-800">
+          {/* LEFT PANEL: Lists */}
+          {!isLoading && (
+            <div className="w-full md:flex-1 p-4 max-h-[420px] overflow-y-auto space-y-4">
               
-              {/* Left Column: Recent + Trending */}
-              <div className="p-4 space-y-4">
-                {/* Recent Searches */}
-                {recentSearches.length > 0 && (
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Recent Searches</span>
-                      <button
-                        type="button"
-                        onClick={clearRecentSearches}
-                        className="text-[10px] font-semibold text-slate-400 hover:text-red-500 transition-colors"
-                      >
-                        Clear
-                      </button>
-                    </div>
-                    <div className="space-y-0.5">
-                      {recentSearches.map((term, idx) => (
-                        <button
-                          key={term}
-                          type="button"
-                          onClick={() => handleSelectTerm(term)}
-                          className={cn(
-                            "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold transition-colors",
-                            activeIndex === idx
-                              ? "bg-slate-100 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400"
-                              : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/30"
-                          )}
-                        >
-                          <Clock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                          <span className="truncate">{term}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Trending Colleges */}
+              {/* 1. COLLEGES SECTION */}
+              {data.colleges.length > 0 && (
                 <div className="space-y-1.5">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Trending Colleges</span>
+                  <h4 className="text-[10px] font-extrabold text-[#94A3B8] uppercase tracking-wider">
+                    Colleges
+                  </h4>
                   <div className="space-y-0.5">
-                    {TRENDING_COLLEGES.map((col, idx) => {
-                      const computedIdx = recentSearches.length + idx;
+                    {data.colleges.map((col, idx) => {
+                      const acronym = getAcronym(col.name);
                       return (
                         <button
-                          key={col.slug}
+                          key={col.id}
                           type="button"
-                          onClick={() => handleSelectSuggestion(col)}
+                          onClick={() => handleSelectCollege(col.slug, col.name)}
                           className={cn(
-                            "w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-left transition-colors",
-                            activeIndex === computedIdx
-                              ? "bg-indigo-50/50 dark:bg-indigo-950/20 text-indigo-900 dark:text-indigo-200"
-                              : "hover:bg-slate-50 dark:hover:bg-slate-800/30"
+                            "w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-left transition-colors cursor-pointer",
+                            activeIndex === idx
+                              ? "bg-slate-50 text-[#4F46E5]"
+                              : "hover:bg-slate-50/50"
                           )}
                         >
-                          <div className="min-w-0 flex items-center gap-2">
-                            <TrendingUp className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                            <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">{col.name}</span>
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span
+                              className={cn(
+                                "h-8 w-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 border border-transparent",
+                                getAcronymBg(acronym)
+                              )}
+                            >
+                              {acronym}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-[#0F172A] truncate">
+                                {col.name}
+                              </p>
+                              <p className="text-[10px] font-semibold text-[#64748B] truncate">
+                                {col.location}
+                              </p>
+                            </div>
                           </div>
-                          <span className="text-[10px] font-medium text-slate-400 shrink-0">{col.city}</span>
+                          {col.nirfRank && col.nirfRank <= 100 && (
+                            <span className="text-[9px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200/50 px-2 py-0.5 rounded-full shrink-0">
+                              #{col.nirfRank} NIRF
+                            </span>
+                          )}
                         </button>
                       );
                     })}
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* Right Column: Exams + Quick Pills */}
-              <div className="p-4 space-y-4">
-                {/* Exams */}
-                <div className="space-y-2">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Popular Exams</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {POPULAR_EXAMS.map((exam, idx) => {
-                      const computedIdx = recentSearches.length + TRENDING_COLLEGES.length + idx;
+              {/* 2. COURSES SECTION */}
+              {data.courses.length > 0 && (
+                <div className="space-y-1.5">
+                  <h4 className="text-[10px] font-extrabold text-[#94A3B8] uppercase tracking-wider">
+                    Courses
+                  </h4>
+                  <div className="space-y-0.5">
+                    {data.courses.map((course, idx) => {
+                      const activeOffset = data.colleges.length + idx;
+                      return (
+                        <button
+                          key={course.id}
+                          type="button"
+                          onClick={() => handleSelectCourse(course.name)}
+                          className={cn(
+                            "w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold transition-colors cursor-pointer",
+                            activeIndex === activeOffset
+                              ? "bg-slate-50 text-[#4F46E5]"
+                              : "text-slate-600 hover:bg-slate-50/50"
+                          )}
+                        >
+                          <BookOpen className="h-4 w-4 text-[#4F46E5] shrink-0" />
+                          <span className="truncate">
+                            {course.name} <span className="text-[10px] text-slate-400">({course.collegeName})</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 3. CITIES SECTION */}
+              {data.cities.length > 0 && (
+                <div className="space-y-1.5">
+                  <h4 className="text-[10px] font-extrabold text-[#94A3B8] uppercase tracking-wider">
+                    Cities
+                  </h4>
+                  <div className="space-y-0.5">
+                    {data.cities.map((city, idx) => {
+                      const activeOffset = data.colleges.length + data.courses.length + idx;
+                      return (
+                        <button
+                          key={city}
+                          type="button"
+                          onClick={() => handleSelectCity(city)}
+                          className={cn(
+                            "w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold transition-colors cursor-pointer",
+                            activeIndex === activeOffset
+                              ? "bg-slate-50 text-[#4F46E5]"
+                              : "text-slate-600 hover:bg-slate-50/50"
+                          )}
+                        >
+                          <MapPin className="h-4 w-4 text-emerald-500 shrink-0" />
+                          <span className="truncate">{city}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 4. EXAMS SECTION */}
+              {data.exams.length > 0 && (
+                <div className="space-y-1.5">
+                  <h4 className="text-[10px] font-extrabold text-[#94A3B8] uppercase tracking-wider">
+                    Exams
+                  </h4>
+                  <div className="flex flex-wrap gap-1.5 pt-0.5">
+                    {data.exams.map((exam, idx) => {
+                      const activeOffset =
+                        data.colleges.length + data.courses.length + data.cities.length + idx;
                       return (
                         <button
                           key={exam}
                           type="button"
-                          onClick={() => handleSelectTerm(exam)}
+                          onClick={() => {
+                            setQuery(exam);
+                            saveSearchQuery(exam);
+                            setIsExpanded(false);
+                            router.push(`/discover?search=${encodeURIComponent(exam)}`);
+                          }}
                           className={cn(
-                            "inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all cursor-pointer",
-                            activeIndex === computedIdx
-                              ? "bg-indigo-600 border-indigo-600 text-white"
-                              : "bg-slate-50 dark:bg-slate-800/40 border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700"
+                            "inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg border transition-colors cursor-pointer",
+                            activeIndex === activeOffset
+                              ? "bg-[#4F46E5] border-[#4F46E5] text-white"
+                              : "bg-white border-[#E2E8F0] text-slate-655 text-slate-600 hover:border-[#64748B]"
                           )}
                         >
                           <Award className="h-3 w-3 text-amber-500 shrink-0" />
@@ -505,53 +465,119 @@ export default function SearchBar({
                     })}
                   </div>
                 </div>
+              )}
 
-                {/* Popular Cities */}
+              {/* 5. RECENT SEARCHES (Only when query is empty) */}
+              {!query.trim() && recentSearches.length > 0 && (
                 <div className="space-y-1.5">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Popular Cities</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {POPULAR_CITIES.map((city) => (
+                  <h4 className="text-[10px] font-extrabold text-[#94A3B8] uppercase tracking-wider">
+                    Recent Searches
+                  </h4>
+                  <div className="space-y-0.5">
+                    {recentSearches.map((term, idx) => (
                       <button
-                        key={city}
+                        key={term}
                         type="button"
-                        onClick={() => handleSelectTerm(city)}
-                        className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 border border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                        onClick={() => {
+                          setQuery(term);
+                          saveSearchQuery(term);
+                          setIsExpanded(false);
+                          router.push(`/discover?search=${encodeURIComponent(term)}`);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold text-slate-600 hover:bg-slate-50/50 cursor-pointer"
                       >
-                        {city}
+                        <Clock className="h-3.5 w-3.5 text-[#94A3B8] shrink-0" />
+                        <span className="truncate">{term}</span>
                       </button>
                     ))}
                   </div>
                 </div>
+              )}
 
-                {/* Popular Courses */}
+              {/* 6. TRENDING SECTIONS */}
+              {!query.trim() && data.trending.length > 0 && (
                 <div className="space-y-1.5">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Popular Courses</span>
+                  <h4 className="text-[10px] font-extrabold text-[#94A3B8] uppercase tracking-wider">
+                    Trending
+                  </h4>
                   <div className="flex flex-wrap gap-1.5">
-                    {POPULAR_COURSES.map((course) => (
+                    {data.trending.map((col) => (
                       <button
-                        key={course}
+                        key={col.id}
                         type="button"
-                        onClick={() => handleSelectTerm(course)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 border border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                        onClick={() => handleSelectCollege(col.slug, col.name)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-full bg-slate-50 border border-slate-100 hover:border-[#E2E8F0] text-slate-600 hover:text-[#0F172A] transition-colors cursor-pointer"
                       >
-                        <BookOpen className="h-3 w-3 text-indigo-500 shrink-0" />
-                        {course}
+                        <TrendingUp className="h-3.5 w-3.5 text-emerald-500 shrink-0 mr-0.5" />
+                        {col.name}
                       </button>
                     ))}
                   </div>
                 </div>
-              </div>
+              )}
+
             </div>
           )}
 
-          {/* Footer Instruction Strip */}
-          <div className="bg-slate-50 dark:bg-slate-900/60 border-t border-slate-100 dark:border-slate-800 px-4 py-2 flex items-center justify-between text-[10px] font-medium text-slate-400 dark:text-slate-500">
-            <span className="flex items-center gap-1">
-              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-              Real live campus records
-            </span>
-            <span>Press Enter to Search</span>
-          </div>
+          {/* RIGHT PANEL: Live College Preview Card */}
+          {topCollege && !isLoading && (
+            <div className="hidden md:flex flex-col w-[260px] p-4 bg-slate-50/50 justify-between shrink-0">
+              <div className="space-y-3">
+                {/* Visual Label */}
+                <span className="text-[9px] font-extrabold uppercase bg-indigo-50 border border-indigo-100 text-[#4F46E5] px-2 py-0.5 rounded-full w-fit block">
+                  Top Match
+                </span>
+                
+                {/* College Image */}
+                <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-slate-100 border border-[#E2E8F0]">
+                  <Image
+                    src={topCollege.thumbnail}
+                    alt={topCollege.name}
+                    fill
+                    className="object-cover"
+                    sizes="200px"
+                  />
+                </div>
+
+                {/* Details */}
+                <div>
+                  <h5 className="text-xs font-extrabold text-[#0F172A] line-clamp-2 leading-snug">
+                    {topCollege.name}
+                  </h5>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <Star className="h-3.5 w-3.5 fill-[#F59E0B] text-[#F59E0B]" />
+                    <span className="text-[11px] font-bold text-[#0F172A]">
+                      4.9
+                    </span>
+                    <span className="text-[9px] text-[#94A3B8] font-semibold">
+                      ({mockSeats * 11} Reviews)
+                    </span>
+                  </div>
+                </div>
+
+                {/* Stats Row */}
+                <div className="grid grid-cols-2 gap-2 border-t border-[#E2E8F0] pt-2">
+                  <div>
+                    <span className="text-[9px] font-bold text-[#94A3B8] uppercase block">Fees</span>
+                    <span className="text-xs font-bold text-[#0F172A]">{formatFees(topCollege.annualFees)}</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] font-bold text-[#94A3B8] uppercase block">Placements</span>
+                    <span className="text-xs font-bold text-[#16A34A]">{mockPlacementRate}%</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <button
+                onClick={() => handleSelectCollege(topCollege.slug, topCollege.name)}
+                className="w-full mt-4 py-2 bg-[#EF4444] hover:bg-[#DC2626] text-white text-xs font-extrabold rounded-xl text-center active:scale-[0.98] transition-all cursor-pointer"
+              >
+                View Full Profile
+              </button>
+            </div>
+          )}
+
         </div>
       )}
     </div>

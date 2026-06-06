@@ -70,6 +70,7 @@ model College {
   rating        Float
   nirfRank      Int?
   thumbnail     String
+  banner        String?
   description   String
   createdAt     DateTime       @default(now())
   courses       Course[]

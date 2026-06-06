@@ -72,7 +72,7 @@ export default function Navbar() {
   const isLoggedIn = !!session?.user;
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-950/95 shadow-sm">
+    <nav className="sticky top-0 z-50 w-full border-b border-[#E2E8F0] bg-white shadow-sm">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 justify-between items-center">
           {/* Left: Brand Logo */}
