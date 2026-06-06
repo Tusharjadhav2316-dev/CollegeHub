@@ -3,655 +3,490 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   ArrowRight,
-  MapPin,
-  Star,
-  Zap,
-  BarChart3,
-  Target,
   ShieldCheck,
-  RefreshCw,
-  CheckCircle2,
-  GitCompareArrows,
-  GraduationCap,
+  Star,
+  GitCompare,
+  Sliders,
+  Scale,
+  Sparkles,
+  Award,
+  ChevronRight,
+  TrendingUp
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/Button";
 import CollegeCard from "@/components/college/CollegeCard";
 import SearchBar from "@/components/college/SearchBar";
-
+import ComparePreview from "@/components/college/ComparePreview";
+import MiniAnalytics from "@/components/college/MiniAnalytics";
+import { getHomepageStats } from "@/lib/homepage-stats";
 
 // ─── SEO Metadata ───────────────────────────────────────────────────────────
 export const metadata: Metadata = {
-  title: "CampusPilot — Discover, Compare & Choose Colleges Smarter",
+  title: "CampusPilot — Find Your Future Campus",
   description:
-    "Discover colleges, compare rankings, placements and fees, and make informed education decisions with CampusPilot.",
+    "Discover colleges, compare rankings, placements, fees and admissions with CampusPilot.",
+  alternates: {
+    canonical: "https://campuspilot.in",
+  },
   openGraph: {
-    title: "CampusPilot — Discover, Compare & Choose Colleges Smarter",
+    title: "CampusPilot — Find Your Future Campus",
     description:
-      "Discover colleges, compare rankings, placements and fees, and make informed education decisions with CampusPilot.",
+      "Discover colleges, compare rankings, placements, fees and admissions with CampusPilot.",
     type: "website",
     locale: "en_IN",
     siteName: "CampusPilot",
+    url: "https://campuspilot.in",
   },
   twitter: {
     card: "summary_large_image",
-    title: "CampusPilot — Discover, Compare & Choose Colleges Smarter",
+    title: "CampusPilot — Find Your Future Campus",
     description:
-      "Discover colleges, compare rankings, placements and fees, and make informed education decisions with CampusPilot.",
+      "Discover colleges, compare rankings, placements, fees and admissions with CampusPilot.",
   },
 };
 
-// ─── Force dynamic (live DB data) ─────────────────────────────────────────────
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-// ─── Data Fetching ────────────────────────────────────────────────────────────
-async function getHomePageData() {
-  const [totalColleges, totalCourses, stateAgg, ratingAgg, featuredColleges] =
-    await Promise.all([
-      prisma.college.count(),
-      prisma.course.count(),
-      prisma.college.findMany({
-        select: { state: true },
-        distinct: ["state"],
-      }),
-      prisma.college.aggregate({ _avg: { rating: true } }),
-      prisma.college.findMany({
-        orderBy: { rating: "desc" },
-        take: 3,
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          city: true,
-          state: true,
-          type: true,
-          rating: true,
-          avgPackage: true,
-          annualFees: true,
-          nirfRank: true,
-          thumbnail: true,
-          description: true,
-        },
-      }),
-    ]);
-
-  return {
-    stats: {
-      totalColleges,
-      totalCourses,
-      totalStates: stateAgg.length,
-      avgRating: Math.round((ratingAgg._avg.rating ?? 0) * 10) / 10,
-    },
-    featuredColleges,
-  };
-}
-
-// ─── Static comparison data (allowed by prompt) ───────────────────────────────
-const IIT_COMPARISON = [
-  {
-    name: "IIT Bombay",
-    rank: 1,
-    fees: "₹2.2L/yr",
-    placement: "98%",
-    avgPackage: "₹21.8 LPA",
-  },
-  {
-    name: "IIT Delhi",
-    rank: 2,
-    fees: "₹2.1L/yr",
-    placement: "97%",
-    avgPackage: "₹20.4 LPA",
-  },
-  {
-    name: "IIT Madras",
-    rank: 3,
-    fees: "₹2.3L/yr",
-    placement: "96%",
-    avgPackage: "₹19.6 LPA",
-  },
-  {
-    name: "IIT Kanpur",
-    rank: 4,
-    fees: "₹2.0L/yr",
-    placement: "95%",
-    avgPackage: "₹18.9 LPA",
-  },
-];
-
-const FEATURES = [
-  {
-    icon: Zap,
-    title: "Smart Search",
-    description:
-      "Search thousands of colleges using real academic and placement data. Find exactly what fits your goals.",
-    color: "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400",
-  },
-  {
-    icon: GitCompareArrows,
-    title: "Side-by-Side Compare",
-    description:
-      "Compare colleges instantly across fees, placements, rankings and ratings. Make data-driven decisions.",
-    color: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400",
-  },
-  {
-    icon: Target,
-    title: "Personalised Match",
-    description:
-      "Find colleges aligned with your goals and preferences. Get recommendations tailored to your profile.",
-    color: "bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400",
-  },
-];
-
-const TRUST_ITEMS = [
-  {
-    icon: ShieldCheck,
-    title: "Verified College Data",
-    description: "All college information is sourced from official NIRF, UGC and NAAC records.",
-    color: "text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20",
-  },
-  {
-    icon: RefreshCw,
-    title: "Updated Placement Insights",
-    description: "Placement data is refreshed annually from college annual reports and surveys.",
-    color: "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20",
-  },
-  {
-    icon: Star,
-    title: "Transparent Ratings",
-    description: "Ratings are computed from multiple verified sources, not self-reported numbers.",
-    color: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20",
-  },
-  {
-    icon: CheckCircle2,
-    title: "Real Comparisons",
-    description: "Compare colleges on equal footing with normalised, standardised metrics.",
-    color: "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20",
-  },
-];
-
+// ─── Quick Filter Data ──────────────────────────────────────────────────────
 const QUICK_FILTERS = [
-  { label: "Engineering", stream: "engineering", emoji: "⚙️" },
-  { label: "MBA", stream: "mba", emoji: "💼" },
-  { label: "Medical", stream: "medical", emoji: "🏥" },
-  { label: "Design", stream: "design", emoji: "🎨" },
+  { label: "Engineering", stream: "engineering", bg: "bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 border border-orange-500/20" },
+  { label: "MBA", stream: "mba", bg: "bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 border border-indigo-500/20" },
+  { label: "Medical", stream: "medical", bg: "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 border border-emerald-500/20" },
+  { label: "Design", stream: "design", bg: "bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 border border-rose-500/20" },
 ];
 
-// ─── Page Component ───────────────────────────────────────────────────────────
 export default async function HomePage() {
-  const { stats, featuredColleges } = await getHomePageData();
+  // Fetch live stats
+  const stats = await getHomepageStats();
+
+  // Fetch top 3 featured colleges sorted by rating and placements
+  const featuredColleges = await prisma.college.findMany({
+    orderBy: [
+      { rating: "desc" },
+      { avgPackage: "desc" },
+    ],
+    take: 3,
+  });
 
   return (
-    <div className="w-full overflow-x-hidden">
+    <div className="w-full overflow-x-hidden bg-[#F8F9FF] dark:bg-slate-950">
+      
       {/* ═══════════════════════════════════════════════════════════════
-          HERO SECTION
+          1. HERO SECTION (Split Layout)
       ═══════════════════════════════════════════════════════════════ */}
-      <section
-        aria-labelledby="hero-heading"
-        className="relative min-h-[calc(100vh-64px)] flex items-center"
-      >
-        {/* Background split: left indigo gradient, right white */}
-        <div className="absolute inset-0 flex">
-          <div className="w-full md:w-1/2 bg-gradient-to-br from-indigo-600 via-indigo-700 to-indigo-900 dark:from-indigo-800 dark:via-indigo-900 dark:to-slate-950" />
-          <div className="hidden md:block w-1/2 bg-[#F8F9FF] dark:bg-slate-950" />
+      <section className="relative min-h-[calc(100vh-64px)] flex items-center py-12 lg:py-0 overflow-hidden">
+        {/* Background split */}
+        <div className="absolute inset-0 flex flex-col md:flex-row pointer-events-none">
+          <div className="w-full md:w-1/2 bg-gradient-to-br from-indigo-900 via-indigo-950 to-slate-950" />
+          <div className="w-full md:w-1/2 bg-[#F8F9FF] dark:bg-slate-950" />
         </div>
 
-        {/* Decorative circles */}
-        <div className="absolute top-20 left-10 h-72 w-72 rounded-full bg-white/5 blur-3xl pointer-events-none" aria-hidden="true" />
-        <div className="absolute bottom-10 left-1/4 h-48 w-48 rounded-full bg-indigo-400/20 blur-2xl pointer-events-none" aria-hidden="true" />
+        {/* Ambient glow effects */}
+        <div className="absolute top-20 left-10 h-72 w-72 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
+        <div className="absolute bottom-10 left-1/4 h-48 w-48 rounded-full bg-indigo-400/5 blur-2xl pointer-events-none" />
 
-        <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
+        <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-            {/* Left column — on indigo bg */}
-            <div>
-              {/* Pill label */}
-              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-4 py-1.5 mb-6">
-                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
-                <span className="text-sm font-medium text-white/90">
-                  {stats.totalColleges.toLocaleString("en-IN")} colleges &amp; counting
+            
+            {/* Left Column (Dark Side) */}
+            <div className="text-left py-6 lg:py-16">
+              
+              {/* Online indicator label */}
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/5 border border-white/10 px-4 py-1.5 mb-6">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-xs font-semibold text-white/90 tracking-wide">
+                  {stats.totalColleges.toLocaleString("en-IN")} Colleges Live Database
                 </span>
               </div>
 
               {/* Headline */}
-              <h1
-                id="hero-heading"
-                className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-tight tracking-tight"
-              >
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-tight tracking-tight">
                 Find your{" "}
-                <span className="relative">
-                  <span className="relative z-10 text-amber-300">future</span>
-                  <span className="absolute -bottom-1 left-0 right-0 h-2 bg-amber-400/30 rounded-full" aria-hidden="true" />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-rose-500">
+                  future
                 </span>{" "}
                 campus.
               </h1>
 
               {/* Subheading */}
-              <p className="mt-6 text-lg sm:text-xl text-indigo-100 leading-relaxed max-w-xl">
-                Discover, compare, and choose the right college with real data you
-                can trust — personalised to your goals.
+              <p className="mt-4 text-base sm:text-lg text-slate-300 leading-relaxed max-w-xl">
+                Discover, compare, and choose the right college with real data you can trust — personalised to your goals.
               </p>
 
-              {/* Search Bar */}
+              {/* Advanced Search Bar Component */}
               <div className="mt-8">
                 <SearchBar size="lg" />
               </div>
 
-              {/* Quick Filters */}
-              <div className="mt-5 flex flex-wrap gap-2.5" role="group" aria-label="Quick subject filters">
-                <span className="text-sm text-indigo-200 self-center">Browse by:</span>
+              {/* Quick Filters Pill Links */}
+              <div className="mt-5 flex flex-wrap items-center gap-2.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 mr-1">Quick Filters:</span>
                 {QUICK_FILTERS.map((f) => (
                   <Link
                     key={f.stream}
                     href={`/discover?stream=${f.stream}`}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 px-4 py-1.5 text-sm font-medium text-white transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                    className={`inline-flex items-center px-4 py-1.5 text-xs font-bold rounded-full transition-all ${f.bg}`}
                   >
-                    <span aria-hidden="true">{f.emoji}</span>
                     {f.label}
                   </Link>
                 ))}
               </div>
 
-              {/* CTA Buttons */}
-              <div className="mt-8 flex flex-wrap gap-4">
-                <Link href="/register">
-                  <Button size="lg" className="shadow-xl shadow-indigo-900/40">
-                    Get Started
-                    <ArrowRight className="ml-2 h-5 w-5" aria-hidden="true" />
-                  </Button>
-                </Link>
-                <Link href="/discover">
-                  <Button
-                    size="lg"
-                    variant="ghost"
-                    className="text-white border border-white/30 hover:bg-white/10 hover:text-white"
-                  >
-                    Explore Colleges
-                  </Button>
-                </Link>
-              </div>
-
-              {/* Live Stats */}
-              <div
-                className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-4"
-                aria-label="Platform statistics"
-              >
+              {/* Live Statistics Row with status dots */}
+              <div className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-4 border-t border-white/10 pt-8">
                 {[
-                  {
-                    value: `${stats.totalColleges.toLocaleString("en-IN")}`,
-                    label: "Colleges",
-                  },
-                  {
-                    value: `${stats.totalCourses.toLocaleString("en-IN")}`,
-                    label: "Courses",
-                  },
-                  {
-                    value: `${stats.totalStates}`,
-                    label: "States",
-                  },
-                  {
-                    value: `${stats.avgRating}★`,
-                    label: "Avg Rating",
-                  },
-                ].map(({ value, label }) => (
-                  <div
-                    key={label}
-                    className="flex items-center gap-2 rounded-xl bg-white/10 border border-white/10 px-3 py-2.5"
-                  >
-                    <span className="h-2 w-2 rounded-full bg-emerald-400 shrink-0" aria-hidden="true" />
+                  { value: stats.totalColleges.toLocaleString("en-IN"), label: "Colleges" },
+                  { value: stats.totalCourses.toLocaleString("en-IN"), label: "Courses" },
+                  { value: stats.statesCovered, label: "States" },
+                  { value: `${stats.avgRating} ★`, label: "Avg Rating" },
+                ].map((stat, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-emerald-400 shrink-0" />
                     <div>
-                      <p className="text-sm font-bold text-white">{value}</p>
-                      <p className="text-xs text-indigo-200">{label}</p>
+                      <p className="text-base font-extrabold text-white leading-none">
+                        {stat.value}
+                      </p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">
+                        {stat.label}
+                      </p>
                     </div>
                   </div>
                 ))}
               </div>
+
             </div>
 
-            {/* Right column — decorative card stack (desktop only) */}
-            <div className="hidden lg:flex flex-col gap-4 items-start pl-8">
-              {/* Decorative floating card */}
-              <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-6 border border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="h-12 w-12 rounded-xl bg-indigo-600 flex items-center justify-center shadow-md shadow-indigo-200">
-                    <GraduationCap className="h-6 w-6 text-white" />
+            {/* Right Column (Light Side - Glass Widgets Stack) */}
+            <div className="relative flex flex-col justify-center items-center lg:items-end pl-0 lg:pl-10 h-full py-6">
+              
+              {/* Stack Wrapper */}
+              <div className="relative w-full max-w-md">
+                
+                {/* 1. Main College Glassmorphism Preview Card */}
+                <div className="relative bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl border border-white/40 dark:border-slate-800 rounded-3xl p-5 shadow-2xl z-10 transition-transform duration-300 hover:scale-[1.01]">
+                  
+                  {/* Top-right Rank overlay ribbon */}
+                  <div className="absolute top-0 right-0 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-extrabold text-xs px-3.5 py-1.5 rounded-bl-3xl rounded-tr-3xl shadow-md z-10">
+                    #1 Engineering
                   </div>
-                  <div>
-                    <h3 className="font-bold text-slate-900 dark:text-white text-sm">Top Ranked</h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Live NIRF Rankings</p>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  {["IIT Bombay", "IIT Delhi", "IIT Madras"].map((name, i) => (
-                    <div key={name} className="flex items-center gap-3">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-xs font-bold text-indigo-600 dark:text-indigo-400">
-                        {i + 1}
-                      </span>
-                      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{name}</span>
-                      <div className="ml-auto flex">
-                        {[1, 2, 3, 4, 5].map((s) => (
-                          <Star
-                            key={s}
-                            className={`h-3 w-3 ${s <= 5 - i ? "text-amber-400 fill-amber-400" : "text-slate-200"}`}
-                          />
-                        ))}
+
+                  <div className="flex gap-4">
+                    {/* Small campus thumbnail */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src="https://picsum.photos/seed/bombay/400/300"
+                      alt="IIT Bombay"
+                      className="h-20 w-24 rounded-2xl object-cover shrink-0 bg-slate-100 dark:bg-slate-800 border border-slate-200/50"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src =
+                          "https://ui-avatars.com/api/?name=IITB&background=4F46E5&color=fff";
+                      }}
+                    />
+                    
+                    {/* Detail block */}
+                    <div className="flex flex-col justify-between min-w-0 pr-12">
+                      <div>
+                        <h3 className="font-extrabold text-slate-900 dark:text-white text-base truncate leading-snug">
+                          IIT Bombay
+                        </h3>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span className="flex items-center gap-0.5 text-xs font-bold text-amber-500">
+                            <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
+                            4.9
+                          </span>
+                          <span className="text-[10px] text-slate-450 dark:text-slate-400 font-medium">
+                            (2,841 reviews)
+                          </span>
+                        </div>
                       </div>
+
+                      {/* Pill Tag */}
+                      <span className="inline-flex w-fit px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-orange-500/10 text-orange-600 border border-orange-500/20">
+                        Engineering
+                      </span>
                     </div>
-                  ))}
+                  </div>
+
                 </div>
+
+                {/* 2. Floating Match Rate Badge Widget */}
+                <div className="absolute -bottom-6 -right-4 bg-emerald-600 text-white rounded-2xl shadow-xl p-3.5 w-32 flex items-center justify-between z-20 hover:scale-105 transition-transform duration-300">
+                  <div className="min-w-0">
+                    <p className="text-xl font-extrabold leading-none">98%</p>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-100 mt-1">
+                      Match Rate
+                    </p>
+                  </div>
+                  
+                  {/* Miniature Animated Trend Line SVG */}
+                  <svg className="w-10 h-8 text-emerald-350 shrink-0 ml-1" viewBox="0 0 40 20" fill="none">
+                    <path
+                      d="M2 18 C 10 12, 15 15, 20 6 C 25 3, 30 5, 38 2"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M2 18 C 10 12, 15 15, 20 6 C 25 3, 30 5, 38 2 L 38 20 L 2 20 Z"
+                      fill="url(#grad)"
+                      opacity="0.1"
+                    />
+                    <defs>
+                      <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="currentColor" />
+                        <stop offset="100%" stopColor="transparent" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                </div>
+
+                {/* 3. Floating Testimonial Bubble Card */}
+                <div className="absolute -top-12 -left-6 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800/80 rounded-2xl p-3 shadow-lg flex items-center gap-3 max-w-[280px] z-20 hover:scale-102 transition-transform">
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-650 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-sm">
+                    AR
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold text-slate-800 dark:text-slate-200 leading-tight">
+                      &quot;Got into IIT Delhi in my first attempt!&quot;
+                    </p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
+                      Arjun R., JEE 2024
+                    </p>
+                  </div>
+                </div>
+
               </div>
 
-              {/* Small secondary card */}
-              <div className="ml-12 bg-white dark:bg-slate-900 rounded-2xl shadow-xl p-4 border border-slate-100 dark:border-slate-800 flex items-center gap-4">
-                <div className="h-10 w-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                  <BarChart3 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Avg Placement</p>
-                  <p className="text-lg font-bold text-slate-900 dark:text-white">₹8.4 LPA</p>
-                </div>
-                <div className="ml-2 flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5">
-                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">↑ 12%</span>
-                </div>
-              </div>
-
-              {/* Third card */}
-              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl p-4 border border-slate-100 dark:border-slate-800 flex items-center gap-4 w-64">
-                <div className="h-10 w-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                  <MapPin className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">States Covered</p>
-                  <p className="text-lg font-bold text-slate-900 dark:text-white">{stats.totalStates} States</p>
-                </div>
-              </div>
             </div>
+
           </div>
         </div>
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════
-          FEATURED COLLEGES
+          2. FEATURED COLLEGES SECTION
       ═══════════════════════════════════════════════════════════════ */}
-      <section
-        aria-labelledby="featured-heading"
-        className="py-20 bg-[#F8F9FF] dark:bg-slate-950"
-      >
+      <section className="py-16 bg-[#F8F9FF] dark:bg-slate-950 border-t border-slate-200/50 dark:border-slate-900/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Section header */}
-          <div className="flex items-end justify-between mb-10">
+          
+          {/* Header row */}
+          <div className="flex items-end justify-between mb-8">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-2">
-                Top Picks
-              </p>
-              <h2
-                id="featured-heading"
-                className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white"
-              >
+              <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 block mb-2">
+                Top Rated Picks
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">
                 Featured Colleges
               </h2>
-              <p className="mt-2 text-slate-500 dark:text-slate-400 max-w-lg">
-                Handpicked top-rated colleges based on placements, infrastructure and student satisfaction.
-              </p>
             </div>
             <Link
               href="/discover"
-              className="hidden sm:inline-flex items-center gap-1.5 text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-md"
+              className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-450 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
             >
               View All
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              <ChevronRight className="h-4 w-4" />
             </Link>
           </div>
 
-          {/* College Cards Grid */}
+          {/* Cards Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {featuredColleges.map((college) => (
-              <CollegeCard key={college.id} {...college} />
+            {featuredColleges.map((college, idx) => (
+              <CollegeCard
+                key={college.id}
+                rank={idx + 1}
+                {...college}
+              />
             ))}
           </div>
 
-          {/* Mobile: View All */}
-          <div className="mt-8 flex justify-center sm:hidden">
-            <Link href="/discover">
-              <Button variant="secondary" size="md">
-                View All Colleges
-                <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
-              </Button>
-            </Link>
-          </div>
         </div>
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════
-          FEATURES SECTION
+          3. EVERYTHING YOU NEED SECTION
       ═══════════════════════════════════════════════════════════════ */}
-      <section
-        aria-labelledby="features-heading"
-        className="py-20 bg-white dark:bg-slate-900"
-      >
+      <section className="py-16 bg-white dark:bg-slate-900 border-t border-slate-200/50 dark:border-slate-900/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-14">
-            <p className="text-sm font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-2">
+          
+          <div className="text-center max-w-xl mx-auto mb-12">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 block mb-2">
               Why CampusPilot
-            </p>
-            <h2
-              id="features-heading"
-              className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white"
-            >
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">
               Everything you need to choose confidently
             </h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {FEATURES.map(({ icon: Icon, title, description, color }) => (
+            {[
+              {
+                icon: Sliders,
+                title: "Smart Search",
+                description: "Search colleges using rankings, placements, fees and academics.",
+              },
+              {
+                icon: Scale,
+                title: "Side-by-Side Compare",
+                description: "Compare colleges instantly across fees, placements, and ratings in one unified view.",
+              },
+              {
+                icon: Sparkles,
+                title: "Personalised Match",
+                description: "Find colleges aligned with your goals and entrance exam parameters.",
+              },
+            ].map((item, idx) => (
               <div
-                key={title}
-                className="group relative bg-[#F8F9FF] dark:bg-slate-800 rounded-2xl p-8 border border-slate-200/60 dark:border-slate-700/60 hover:shadow-xl hover:shadow-indigo-100/50 dark:hover:shadow-none hover:-translate-y-1 transition-all duration-300"
+                key={idx}
+                className="bg-[#F8F9FF] dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800/60 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow"
               >
-                {/* Hover gradient */}
-                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-50/0 to-indigo-50/60 dark:from-indigo-900/0 dark:to-indigo-900/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" aria-hidden="true" />
-
-                <div className={`relative z-10 inline-flex h-14 w-14 items-center justify-center rounded-2xl ${color} mb-6`}>
-                  <Icon className="h-7 w-7" aria-hidden="true" />
+                <div className="inline-flex items-center justify-center h-12 w-12 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 mb-5 border border-indigo-100 dark:border-indigo-900/50">
+                  <item.icon className="h-5 w-5" />
                 </div>
-                <h3 className="relative z-10 text-xl font-bold text-slate-900 dark:text-white mb-3">
-                  {title}
+                <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2">
+                  {item.title}
                 </h3>
-                <p className="relative z-10 text-slate-500 dark:text-slate-400 leading-relaxed">
-                  {description}
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 leading-relaxed">
+                  {item.description}
                 </p>
               </div>
             ))}
           </div>
+
         </div>
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════
-          COMPARISON PREVIEW
+          4. COMPARISON PREVIEW + MINI ANALYTICS SECTION
       ═══════════════════════════════════════════════════════════════ */}
-      <section
-        aria-labelledby="compare-heading"
-        className="py-20 bg-[#F8F9FF] dark:bg-slate-950"
-      >
+      <section className="py-16 bg-[#F8F9FF] dark:bg-slate-950 border-t border-slate-200/50 dark:border-slate-900/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col lg:flex-row gap-12 items-center">
-            {/* Left: copy */}
-            <div className="lg:w-1/3 shrink-0">
-              <p className="text-sm font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-2">
-                Compare Smarter
-              </p>
-              <h2
-                id="compare-heading"
-                className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white mb-4"
-              >
-                Side-by-side comparisons
-              </h2>
-              <p className="text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
-                Stop guessing. Compare colleges across rankings, fees, placement
-                rates and packages — all in one view.
-              </p>
-              <Link href="/compare">
-                <Button size="md">
-                  Compare Now
-                  <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
-                </Button>
-              </Link>
+          
+          <div className="mb-10 text-left">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 block mb-2">
+              Analyse Options
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">
+              Compare Premier Camps Instantly
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
+            {/* Table layout (left 3/5 width on large desktop) */}
+            <div className="lg:col-span-3">
+              <ComparePreview />
             </div>
-
-            {/* Right: table */}
-            <div className="w-full lg:flex-1 overflow-x-auto">
-              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl overflow-hidden min-w-[480px]">
-                {/* Table header */}
-                <div className="grid grid-cols-5 gap-0 bg-indigo-600 dark:bg-indigo-700 text-white text-xs font-semibold uppercase tracking-wide">
-                  <div className="px-4 py-3 col-span-2">College</div>
-                  <div className="px-4 py-3 text-center">NIRF Rank</div>
-                  <div className="px-4 py-3 text-center">Fees/yr</div>
-                  <div className="px-4 py-3 text-center">Avg Package</div>
-                </div>
-
-                {IIT_COMPARISON.map((college, idx) => (
-                  <div
-                    key={college.name}
-                    className={`grid grid-cols-5 gap-0 border-b border-slate-100 dark:border-slate-800 last:border-b-0 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 transition-colors duration-150 ${
-                      idx === 0 ? "bg-amber-50/30 dark:bg-amber-900/5" : ""
-                    }`}
-                  >
-                    <div className="px-4 py-4 col-span-2 flex items-center gap-3">
-                      <span
-                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${
-                          idx === 0
-                            ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
-                            : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-                        }`}
-                      >
-                        {idx + 1}
-                      </span>
-                      <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                        {college.name}
-                      </span>
-                    </div>
-                    <div className="px-4 py-4 text-center">
-                      <span className="inline-flex items-center gap-1 text-sm font-bold text-indigo-600 dark:text-indigo-400">
-                        #{college.rank}
-                      </span>
-                    </div>
-                    <div className="px-4 py-4 text-center">
-                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                        {college.fees}
-                      </span>
-                    </div>
-                    <div className="px-4 py-4 text-center">
-                      <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                        {college.avgPackage}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            
+            {/* Visual analytics (right 2/5 width on large desktop) */}
+            <div className="lg:col-span-2">
+              <MiniAnalytics />
             </div>
           </div>
+
         </div>
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════
-          TRUST SECTION
+          5. TRUST SECTION
       ═══════════════════════════════════════════════════════════════ */}
-      <section
-        aria-labelledby="trust-heading"
-        className="py-20 bg-white dark:bg-slate-900"
-      >
+      <section className="py-16 bg-white dark:bg-slate-900 border-t border-slate-200/50 dark:border-slate-900/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-14">
-            <h2
-              id="trust-heading"
-              className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white"
-            >
+          
+          <div className="text-center max-w-xl mx-auto mb-12">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">
               Trusted by students across India
             </h2>
-            <p className="mt-3 text-slate-500 dark:text-slate-400 max-w-xl mx-auto">
-              We build tools that put accuracy and transparency first so you can
-              make the most important decision of your life with confidence.
+            <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
+              We build tools that put accuracy and transparency first so you can make the most important decision of your life with confidence.
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {TRUST_ITEMS.map(({ icon: TrustIcon, title, description, color }) => (
+            {[
+              {
+                icon: ShieldCheck,
+                title: "Verified Data",
+                description: "All college details are cross-referenced with NIRF reports and academic databases.",
+              },
+              {
+                icon: Award,
+                title: "Transparent Rankings",
+                description: "Objective ranking filters with detailed cutoff benchmarks and placement weights.",
+              },
+              {
+                icon: TrendingUp,
+                title: "Placement Insights",
+                description: "Accurate placement packages compiled from verifiable corporate recruitment files.",
+              },
+              {
+                icon: GitCompare,
+                title: "College Comparisons",
+                description: "Standardized fee grids and facilities tables for clear, peer comparisons.",
+              },
+            ].map((item, idx) => (
               <div
-                key={title}
-                className="rounded-2xl bg-[#F8F9FF] dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 p-6 hover:shadow-md dark:hover:shadow-none transition-shadow duration-200"
+                key={idx}
+                className="bg-[#F8F9FF] dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800/60 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow"
               >
-                <div className={`inline-flex h-12 w-12 items-center justify-center rounded-xl ${color} mb-4`}>
-                  <TrustIcon className="h-6 w-6" aria-hidden="true" />
+                <div className="inline-flex items-center justify-center h-10 w-10 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-650 dark:text-indigo-400 mb-4">
+                  <item.icon className="h-5 w-5" />
                 </div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2">
-                  {title}
-                </h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                  {description}
+                <h4 className="text-sm font-extrabold text-slate-900 dark:text-white mb-1">
+                  {item.title}
+                </h4>
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 leading-relaxed">
+                  {item.description}
                 </p>
               </div>
             ))}
           </div>
+
         </div>
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════
-          CTA SECTION
+          6. CTA SECTION
       ═══════════════════════════════════════════════════════════════ */}
-      <section
-        aria-labelledby="cta-heading"
-        className="py-24 relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-700 to-indigo-900 dark:from-indigo-800 dark:via-indigo-900 dark:to-slate-950"
-      >
-        {/* Decorative blobs */}
-        <div className="absolute top-0 right-0 h-64 w-64 rounded-full bg-white/5 blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" aria-hidden="true" />
-        <div className="absolute bottom-0 left-0 h-48 w-48 rounded-full bg-indigo-400/20 blur-2xl translate-y-1/2 -translate-x-1/2 pointer-events-none" aria-hidden="true" />
+      <section className="relative py-20 overflow-hidden bg-gradient-to-br from-indigo-900 via-indigo-950 to-slate-950 border-t border-slate-200/10">
+        
+        {/* Glow rings */}
+        <div className="absolute top-0 right-0 h-64 w-64 rounded-full bg-white/5 blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 h-48 w-48 rounded-full bg-indigo-500/10 blur-2xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
 
-        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2
-            id="cta-heading"
-            className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white leading-tight mb-4"
-          >
+        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white leading-tight">
             Ready to find your ideal college?
           </h2>
-          <p className="text-lg text-indigo-100 mb-10 max-w-2xl mx-auto">
-            Start exploring colleges, comparing options and planning your future.
-            Join thousands of students who chose smarter with CampusPilot.
+          <p className="text-sm sm:text-base text-slate-350 max-w-xl mx-auto leading-relaxed">
+            Start exploring colleges, comparing options, and planning your future. Join thousands of students who chose smarter with CampusPilot.
           </p>
-          <div className="flex flex-wrap gap-4 justify-center">
+          
+          <div className="flex flex-wrap gap-4 justify-center pt-4">
             <Link href="/register">
               <Button
                 size="lg"
-                className="bg-white text-indigo-700 hover:bg-indigo-50 border-transparent shadow-xl shadow-indigo-900/30 font-bold"
+                className="bg-white text-indigo-950 hover:bg-slate-50 border-transparent shadow-xl font-extrabold text-sm px-6 py-3"
               >
-                Get Started — It&apos;s Free
-                <ArrowRight className="ml-2 h-5 w-5" aria-hidden="true" />
+                Get Started
+                <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
+            
             <Link href="/discover">
               <Button
                 size="lg"
                 variant="ghost"
-                className="text-white border border-white/30 hover:bg-white/10 hover:text-white"
+                className="text-white border border-white/20 hover:bg-white/5 hover:text-white font-extrabold text-sm px-6 py-3"
               >
                 Explore Colleges
               </Button>
             </Link>
           </div>
-
-          {/* Social proof strip */}
-          <p className="mt-10 text-sm text-indigo-200">
-            <span className="font-semibold text-white">
-              {stats.totalColleges.toLocaleString("en-IN")} colleges
-            </span>{" "}
-            across{" "}
-            <span className="font-semibold text-white">{stats.totalStates} states</span>{" "}
-            ·{" "}
-            <span className="font-semibold text-white">
-              {stats.totalCourses.toLocaleString("en-IN")} courses
-            </span>{" "}
-            · Free to use
-          </p>
         </div>
+
       </section>
+
     </div>
   );
 }
