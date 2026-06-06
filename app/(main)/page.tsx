@@ -179,10 +179,6 @@ export default async function HomePage() {
                       src="https://picsum.photos/seed/bombay/400/300"
                       alt="IIT Bombay"
                       className="h-20 w-24 rounded-2xl object-cover shrink-0 bg-slate-100 dark:bg-slate-800 border border-slate-200/50"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src =
-                          "https://ui-avatars.com/api/?name=IITB&background=4F46E5&color=fff";
-                      }}
                     />
                     
                     {/* Detail block */}
